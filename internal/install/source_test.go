@@ -19,9 +19,12 @@ func TestEnrichPlan_JSON(t *testing.T) {
 	}
 }
 
-func TestEnrichPlan_HTTP(t *testing.T) {
+func TestEnrichPlan_URL_NoHTTPInstall(t *testing.T) {
 	p := EnrichPlan(Plan{Requirement: "从 https://example.com/pkg.zip 安装"})
-	if p.SourceKind != SourceHTTP || p.URL == "" {
+	if p.SourceKind != SourceNPM {
 		t.Fatalf("%+v", p)
+	}
+	if p.URL == "" {
+		t.Fatalf("expected url retained for hinting: %+v", p)
 	}
 }

@@ -59,11 +59,9 @@ func EnrichPlan(plan Plan) Plan {
 				plan.Source = "downloaded"
 				return finalizePlan(plan, req)
 			case "http", "url":
-				plan.SourceKind = SourceHTTP
+				// 在线 npm 安装模式下，不支持直接 URL 安装；保留 URL 仅用于错误提示/未来扩展。
+				plan.SourceKind = SourceNPM
 				plan.URL = strings.TrimSpace(st.URL)
-				if plan.URL == "" {
-					plan.URL = ExtractURL(req)
-				}
 				plan.Source = "downloaded"
 				return finalizePlan(plan, req)
 			case "echo", "generated":
@@ -80,20 +78,12 @@ func EnrichPlan(plan Plan) Plan {
 				return finalizePlan(plan, req)
 			}
 			if u := strings.TrimSpace(st.URL); u != "" {
-				plan.SourceKind = SourceHTTP
+				plan.SourceKind = SourceNPM
 				plan.URL = u
 				plan.Source = "downloaded"
 				return finalizePlan(plan, req)
 			}
 		}
-	}
-
-	if u := ExtractURL(req); u != "" {
-		plan.SourceKind = SourceHTTP
-		plan.URL = u
-		plan.Source = "downloaded"
-		plan.Template = TemplateHTTP
-		return finalizePlan(plan, req)
 	}
 
 	if pkg := extractNPMPackage(req); pkg != "" {
@@ -103,6 +93,11 @@ func EnrichPlan(plan Plan) Plan {
 		plan.Source = "downloaded"
 		plan.Template = TemplateNPM
 		return finalizePlan(plan, req)
+	}
+
+	// Preserve URL (if any) for hinting / future catalog mapping, but do not treat it as an install source.
+	if u := ExtractURL(req); u != "" {
+		plan.URL = u
 	}
 
 	lower := strings.ToLower(req)
@@ -125,12 +120,14 @@ func EnrichPlan(plan Plan) Plan {
 		}
 	}
 
-	plan.SourceKind = SourceEcho
+	// 默认不再回退到 echo（避免“看起来成功但其实是演示”）。
+	// 若未解析出 npm 包名，则保持 SourceNPM 但 NPMPackage 为空，由安装流水线报错提示用户/LLM补全包名。
+	plan.SourceKind = SourceNPM
 	if plan.Template == "" {
-		plan.Template = TemplateEcho
+		plan.Template = TemplateNPM
 	}
 	if plan.Source == "" {
-		plan.Source = "generated"
+		plan.Source = "downloaded"
 	}
 	return finalizePlan(plan, req)
 }
@@ -144,9 +141,6 @@ func finalizePlan(plan Plan, req string) Plan {
 	}
 	if plan.SourceKind == SourceNPM && plan.Template == "" {
 		plan.Template = TemplateNPM
-	}
-	if plan.SourceKind == SourceHTTP && plan.Template == "" {
-		plan.Template = TemplateHTTP
 	}
 	if plan.SourceKind == SourceEcho && plan.Template == "" {
 		plan.Template = TemplateEcho

@@ -27,8 +27,10 @@ type Pipeline struct {
 
 // Result 安装结果。
 type Result struct {
-	Record registry.Record
-	Err    error
+	Record  registry.Record
+	Err     error
+	Reused  bool
+	Message string
 }
 
 // Run 执行 add_managed_mcp 内部流水线。
@@ -38,7 +40,24 @@ func (p *Pipeline) Run(ctx context.Context, requirement, constraints, correlatio
 	if p.MaxSteps <= 0 {
 		p.MaxSteps = 8
 	}
-	plan := p.resolvePlan(ctx, requirement, constraints)
+
+	decision, err := DecideAdd(ctx, p.InstallAgent, p.Reg, p.WS.DataDir, requirement, constraints)
+	if err != nil {
+		return Result{Err: err}
+	}
+	if decision.Reuse {
+		rec, ok := p.Reg.Get(decision.MCPID)
+		if !ok {
+			return Result{Err: fmt.Errorf("reuse mcp_id %q not found", decision.MCPID)}
+		}
+		msg := decision.Message
+		if msg == "" {
+			msg = "reused existing managed mcp"
+		}
+		return Result{Record: rec, Reused: true, Message: msg}
+	}
+
+	plan := decision.Plan
 	if plan.Requirement == "" {
 		return Result{Err: fmt.Errorf("missing_requirement")}
 	}
@@ -65,7 +84,7 @@ func (p *Pipeline) Run(ctx context.Context, requirement, constraints, correlatio
 		return p.fail(plan.MCPID, err, logPath)
 	}
 
-	launch, err := Materialize(ctx, plan, mcpDir, p.ManagerExe, p.ChildEchoBin)
+	launch, err := Materialize(ctx, plan, p.WS.DataDir, mcpDir, p.ManagerExe, p.ChildEchoBin)
 	if err != nil {
 		return p.fail(plan.MCPID, err, logPath)
 	}
@@ -101,25 +120,6 @@ func (p *Pipeline) Run(ctx context.Context, requirement, constraints, correlatio
 
 	got, _ := p.Reg.Get(plan.MCPID)
 	return Result{Record: got}
-}
-
-func (p *Pipeline) resolvePlan(ctx context.Context, requirement, constraints string) Plan {
-	requirement = strings.TrimSpace(requirement)
-	if requirement == "" {
-		return Plan{}
-	}
-	var plan Plan
-	if p.InstallAgent != nil {
-		if pl, ok := p.InstallAgent.Plan(ctx, p.WS.DataDir, requirement, constraints); ok {
-			plan = EnrichPlan(pl)
-		} else {
-			appendLogOnData(p.WS.DataDir, "install-agent: llm plan failed, fallback rules\n")
-			plan = PlanRequirement(requirement)
-		}
-	} else {
-		plan = PlanRequirement(requirement)
-	}
-	return EnrichPlan(plan)
 }
 
 func appendLogOnData(dataDir, msg string) {

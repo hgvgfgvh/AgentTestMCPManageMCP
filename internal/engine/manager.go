@@ -142,9 +142,14 @@ func (e *ManagerEngine) AddManaged(ctx context.Context, in AddInput) string {
 	if status == "" {
 		status = "failed"
 	}
-	accepted := res.Err == nil && status == "ready"
+	accepted := res.Err == nil && (status == "ready" || res.Reused)
 	msg := "installed and child mcp ready"
-	if res.Err != nil {
+	if res.Reused {
+		msg = res.Message
+		if msg == "" {
+			msg = "reused existing managed mcp"
+		}
+	} else if res.Err != nil {
 		msg = res.Err.Error()
 	}
 	return response.FormatAdd(response.AddPayload{

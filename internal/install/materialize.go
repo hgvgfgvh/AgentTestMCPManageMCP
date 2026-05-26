@@ -11,7 +11,7 @@ import (
 )
 
 // Materialize 按 Plan 将子 MCP 物化到 mcpDir 并返回 LaunchSpec。
-func Materialize(ctx context.Context, plan Plan, mcpDir, managerExe, childEchoBin string) (registry.LaunchSpec, error) {
+func Materialize(ctx context.Context, plan Plan, dataDir, mcpDir, managerExe, childEchoBin string) (registry.LaunchSpec, error) {
 	plan = EnrichPlan(plan)
 	hints := LaunchHints{
 		NPMPackage: plan.NPMPackage,
@@ -25,38 +25,14 @@ func Materialize(ctx context.Context, plan Plan, mcpDir, managerExe, childEchoBi
 		if strings.TrimSpace(plan.NPMPackage) == "" {
 			return registry.LaunchSpec{}, fmt.Errorf("npm source without package name")
 		}
-		if err := NPMInstall(ctx, mcpDir, plan.NPMPackage, plan.NPMArgs); err != nil {
+		// Online install, using 3M-managed Node runtime under WS.DataDir.
+		if _, _, err := NPMInstallOnline(ctx, dataDir, mcpDir, plan.NPMPackage, plan.NPMArgs); err != nil {
 			return registry.LaunchSpec{}, err
 		}
 		return ResolveLaunchFromDir(mcpDir, hints)
 
 	case SourceHTTP:
-		url := strings.TrimSpace(plan.URL)
-		if url == "" {
-			url = ExtractURL(plan.Requirement)
-		}
-		if url == "" {
-			return registry.LaunchSpec{}, fmt.Errorf("http source without url")
-		}
-		bundle := filepath.Join(mcpDir, bundleNameFromURL(url))
-		if err := DownloadHTTP(ctx, url, bundle, downloadAllowlistFromEnv()); err != nil {
-			return registry.LaunchSpec{}, err
-		}
-		extractDir := filepath.Join(mcpDir, "extracted")
-		if err := ExtractArchive(bundle, extractDir); err != nil {
-			// 非压缩包：保留 bundle，尝试作为 launch.json 同目录资源
-			_ = WriteLaunchManifest(filepath.Join(mcpDir, "launch.json"), LaunchManifest{
-				Command: ResolveChildBinary(managerExe, "child-echo-mcp"),
-				Summary: plan.Summary,
-			})
-			return ResolveLaunchFromDir(mcpDir, hints)
-		}
-		_ = FlattenSingleRootDir(extractDir)
-		// 将 extracted 内容合并到 mcpDir 根（便于 launch 解析）
-		if err := mergeDir(extractDir, mcpDir); err != nil {
-			return registry.LaunchSpec{}, err
-		}
-		return ResolveLaunchFromDir(mcpDir, hints)
+		return registry.LaunchSpec{}, fmt.Errorf("http install path disabled: only npm online install is supported")
 
 	case SourceEcho, "":
 		bin := strings.TrimSpace(childEchoBin)

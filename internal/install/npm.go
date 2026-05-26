@@ -7,18 +7,26 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
-// NPMInstall 在 mcpDir 安装 npm 包并写入 package.json / launch.json。
-func NPMInstall(ctx context.Context, mcpDir, pkg string, extraArgs []string) error {
+// NPMInstallOnline installs an npm MCP package into the managed workspace and
+// writes a launch.json that uses the 3M-managed Node runtime (no system node/npm required).
+//
+// Layout:
+// - mcpDir/app/   : npm project (package.json + node_modules)
+// - mcpDir/launch.json : command=node.exe, args=[entry.js, ...]
+func NPMInstallOnline(ctx context.Context, dataDir, mcpDir, pkg string, extraArgs []string) (NodeRuntimeSpec, string, error) {
 	pkg = strings.TrimSpace(pkg)
 	if pkg == "" {
-		return fmt.Errorf("empty npm package")
+		return NodeRuntimeSpec{}, "", fmt.Errorf("empty npm package")
 	}
 	if err := os.MkdirAll(mcpDir, 0o755); err != nil {
-		return err
+		return NodeRuntimeSpec{}, "", err
+	}
+	appDir := filepath.Join(mcpDir, "app")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		return NodeRuntimeSpec{}, "", err
 	}
 
 	pkgJSON := map[string]any{
@@ -29,29 +37,30 @@ func NPMInstall(ctx context.Context, mcpDir, pkg string, extraArgs []string) err
 		},
 	}
 	b, _ := json.MarshalIndent(pkgJSON, "", "  ")
-	if err := os.WriteFile(filepath.Join(mcpDir, "package.json"), b, 0o644); err != nil {
-		return err
+	if err := os.WriteFile(filepath.Join(appDir, "package.json"), b, 0o644); err != nil {
+		return NodeRuntimeSpec{}, "", err
 	}
 
-	npm, err := exec.LookPath("npm")
-	if err != nil && runtime.GOOS == "windows" {
-		npm, err = exec.LookPath("npm.cmd")
-	}
+	rt, err := EnsureNodeRuntime(ctx, dataDir)
 	if err != nil {
-		return fmt.Errorf("npm not found in PATH: %w", err)
+		return NodeRuntimeSpec{}, "", err
 	}
-	if out, err := runCmd(ctx, mcpDir, npm, "install", "--omit=dev", "--no-audit", "--no-fund"); err != nil {
-		return fmt.Errorf("npm install: %w\n%s", err, out)
+	if out, err := runCmd(ctx, appDir, rt.NPMCmd, "install", "--omit=dev", "--no-audit", "--no-fund"); err != nil {
+		return NodeRuntimeSpec{}, "", fmt.Errorf("npm install: %w\n%s", err, out)
 	}
 
-	launch := defaultNPXLaunch(mcpDir, pkg, extraArgs)
+	entry, err := resolveNodeMCPEntry(appDir, pkg)
+	if err != nil {
+		return NodeRuntimeSpec{}, "", err
+	}
+	// launch.json uses node.exe directly for stable stdio behavior.
 	_ = WriteLaunchManifest(filepath.Join(mcpDir, "launch.json"), LaunchManifest{
-		Command: launch.Command,
-		Args:    launch.Args,
-		Dir:     ".",
+		Command: rt.NodeExe,
+		Args:    append([]string{entry}, extraArgs...),
+		Dir:     "app",
 		Summary: "npm: " + pkg,
 	})
-	return nil
+	return rt, entry, nil
 }
 
 func sanitizePkgName(pkg string) string {
@@ -70,20 +79,6 @@ func sanitizePkgName(pkg string) string {
 	return s
 }
 
-func npmCommand() string {
-	if runtime.GOOS == "windows" {
-		return "npm.cmd"
-	}
-	return "npm"
-}
-
-func npxCommand() string {
-	if runtime.GOOS == "windows" {
-		return "npx.cmd"
-	}
-	return "npx"
-}
-
 func runCmd(ctx context.Context, dir, name string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
@@ -95,4 +90,37 @@ func runCmd(ctx context.Context, dir, name string, args ...string) (string, erro
 // LookPath 解析可执行文件（供测试）。
 func LookPath(name string) (string, error) {
 	return exec.LookPath(name)
+}
+
+func resolveNodeMCPEntry(appDir, pkg string) (string, error) {
+	// Prefer the package's "main" if present; otherwise try common MCP dist entry.
+	pkgDir := filepath.Join(appDir, "node_modules", filepath.FromSlash(pkg))
+	// Common layouts
+	candidates := []string{
+		filepath.Join(pkgDir, "dist", "index.js"),
+		filepath.Join(pkgDir, "build", "index.js"),
+		filepath.Join(pkgDir, "index.js"),
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			// launch.json is relative to mcpDir/app
+			rel, _ := filepath.Rel(appDir, c)
+			return filepath.ToSlash(rel), nil
+		}
+	}
+	// Fall back to reading package.json main
+	b, err := os.ReadFile(filepath.Join(pkgDir, "package.json"))
+	if err == nil {
+		var pj struct {
+			Main string `json:"main"`
+		}
+		if json.Unmarshal(b, &pj) == nil && strings.TrimSpace(pj.Main) != "" {
+			mainPath := filepath.Join(pkgDir, filepath.FromSlash(strings.TrimSpace(pj.Main)))
+			if _, err := os.Stat(mainPath); err == nil {
+				rel, _ := filepath.Rel(appDir, mainPath)
+				return filepath.ToSlash(rel), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("cannot resolve node entry for %q (looked under %s)", pkg, pkgDir)
 }

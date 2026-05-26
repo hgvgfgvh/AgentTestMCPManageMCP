@@ -160,7 +160,7 @@ Host 刷新「托管能力」地图的唯一 3M 数据源；不含子工具 sche
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "add_managed_mcp",
-		Description: `Host 下发要增加的 MCP 能力需求。内部：安装 Agent（可选 LLM）→ 工作区/下载/配置 → 启动子 MCP → 登记 Registry。
+		Description: `Host 下发要增加的 MCP 能力需求（自然语言即可）。内部：读取 Registry → LLM 判重叠/选型 → 在线 npm 安装（3M 自带 Node）→ 热加载。
 同步返回 accepted、mcp_id、status、message、error；不得含 catalog 字段。`,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args addArgs) (*mcp.CallToolResult, any, error) {
 		out := eng.AddManaged(ctx, engine.AddInput{
