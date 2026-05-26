@@ -1,0 +1,18 @@
+# 3M 内部 Agent 提示与有界参数（可选；核心 prompt 亦内置于代码，便于无配置文件启动）。
+
+install_agent:
+  max_turns: 6
+  templates:
+    - id: child-echo
+      summary: "子 MCP：单工具 echo，回显 input"
+
+execute_agent:
+  max_turns: 4
+
+# LLM 由进程环境变量提供（与 Soul MCP 类似，不写入 Host app.yaml）：
+#   MCP_MANAGER_LLM_API_BASE
+#   MCP_MANAGER_LLM_API_KEY
+#   MCP_MANAGER_LLM_MODEL
+#   MCP_MANAGER_AGENT=1          # 0 关闭内部 Agent，仅规则路径
+#   MCP_MANAGER_INSTALL_MAX_TURNS
+#   MCP_MANAGER_EXECUTE_MAX_TURNS

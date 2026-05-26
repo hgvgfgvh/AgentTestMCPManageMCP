@@ -1,0 +1,4 @@
+/data/
+*.exe
+*.test
+/install-agent.log
