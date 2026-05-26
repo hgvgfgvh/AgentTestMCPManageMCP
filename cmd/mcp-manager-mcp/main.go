@@ -10,15 +10,18 @@ import (
 	"strings"
 
 	"AgentTestMCPManageMCP/internal/catalog"
+	"AgentTestMCPManageMCP/internal/debugui"
 	"AgentTestMCPManageMCP/internal/engine"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 var (
-	httpAddr   = flag.String("http", "", "Streamable HTTP MCP")
-	dataDir    = flag.String("data", "", "MCP_MANAGER_DATA_DIR（默认 ./data）")
-	engineKind = flag.String("engine", "", "manager（默认）| stub")
+	httpAddr    = flag.String("http", "", "Streamable HTTP MCP")
+	dataDir     = flag.String("data", "", "MCP_MANAGER_DATA_DIR（默认 ./data）")
+	engineKind  = flag.String("engine", "", "manager（默认）| stub")
+	debugUI     = flag.String("debug-ui", "", "调试 WebUI：1 开启（默认）| 0 关闭")
+	debugUIAddr = flag.String("debug-ui-addr", "", "调试 WebUI 地址（默认 127.0.0.1:18094）")
 )
 
 func main() {
@@ -47,6 +50,16 @@ func main() {
 		log.Printf("[mcp-manager-mcp] engine=manager data_dir=%s agent=%v", dir, os.Getenv("MCP_MANAGER_LLM_API_BASE") != "")
 	}
 	defer closer()
+
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+
+	if debugUIEnabled() {
+		debugui.Start(ctx, debugui.Config{
+			Addr:   resolveDebugUIAddr(),
+			Engine: eng,
+		})
+	}
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "agent-test-mcp-manager",
@@ -104,6 +117,27 @@ func resolveEngineKind() string {
 		return k
 	}
 	return "manager"
+}
+
+func debugUIEnabled() bool {
+	if v := trim(*debugUI); v != "" {
+		return v != "0" && !strings.EqualFold(v, "false")
+	}
+	v := trim(os.Getenv("MCP_MANAGER_DEBUG_UI"))
+	if v == "0" || strings.EqualFold(v, "false") {
+		return false
+	}
+	return true
+}
+
+func resolveDebugUIAddr() string {
+	if a := trim(*debugUIAddr); a != "" {
+		return a
+	}
+	if a := trim(os.Getenv("MCP_MANAGER_DEBUG_UI_ADDR")); a != "" {
+		return a
+	}
+	return "127.0.0.1:18094"
 }
 
 func registerTools(server *mcp.Server, eng engine.Engine) {

@@ -38,6 +38,7 @@ go build -o child-echo-mcp.exe ./cmd/child-echo-mcp   # 与 manager 放同一目
 - **stdio**：`mcp-manager-mcp.exe -data ./data`（默认 `-engine manager`）
 - **桩模式**：`-engine stub`
 - **HTTP**：`mcp-manager-mcp.exe -http 127.0.0.1:8093`
+- **调试 WebUI**（默认随进程启动）：浏览器打开 **http://127.0.0.1:18094/** ，可手动测试三工具；关闭：`-debug-ui 0` 或 `MCP_MANAGER_DEBUG_UI=0`
 
 环境变量：
 
@@ -52,6 +53,8 @@ go build -o child-echo-mcp.exe ./cmd/child-echo-mcp   # 与 manager 放同一目
 | `MCP_MANAGER_AGENT` | `1` 开启（默认有 API 即开）；`0` 仅规则路径 |
 | `MCP_MANAGER_INSTALL_MAX_TURNS` | 安装 Agent 上限（默认 6） |
 | `MCP_MANAGER_EXECUTE_MAX_TURNS` | 执行 Agent 上限（默认 4） |
+| `MCP_MANAGER_DEBUG_UI` | `0` 关闭调试 WebUI；默认开启 |
+| `MCP_MANAGER_DEBUG_UI_ADDR` | 调试 WebUI 监听地址（默认 `127.0.0.1:18094`） |
 
 ## Phase-3：完整安装（manager-v3-full）
 
