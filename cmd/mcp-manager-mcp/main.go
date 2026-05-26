@@ -154,13 +154,24 @@ Host 刷新「托管能力」地图的唯一 3M 数据源；不含子工具 sche
 	})
 
 	type addArgs struct {
-		Requirement   string `json:"requirement" jsonschema:"required,要增加的 MCP 能力描述"`
-		Constraints   string `json:"constraints,omitempty"`
+		Requirement   string `json:"requirement" jsonschema:"required,要什么 MCP 能力，并写明该能力启动必备的基本配置（如目录路径、数据库文件、token 等），自然语言即可"`
+		Constraints   string `json:"constraints,omitempty" jsonschema:"可选，补充配置或约束（如只读、版本、网络）；会一并交给内部安装 Agent"`
 		CorrelationID string `json:"correlation_id,omitempty"`
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "add_managed_mcp",
-		Description: `Host 下发要增加的 MCP 能力需求（自然语言即可）。内部：读取 Registry → LLM 判重叠/选型 → 在线 npm 安装（3M 自带 Node）→ 热加载。
+		Description: `Host 下发要增加的 MCP 能力及启动必备的基本配置（自然语言，写在 requirement；补充写 constraints）。
+
+requirement 应同时包含：
+· 能力类型（如 git / 文件系统 / sqlite / github）
+· 该 MCP 启动所需的基本配置（常见为 launch args：目录路径、.db 文件路径、仓库路径等；敏感项如 token 可写 constraints）
+
+示例 requirement：
+· 「git 管理能力，默认仓库目录 C:\repo」
+· 「sqlite MCP，数据库文件 C:\data\app.db」
+· 「文件系统 MCP，允许访问 C:\DATA\GODATA\AgentTest\WorkSpace」
+
+内部：读取 Registry → LLM 判重叠/选型 → 将基本配置写入 launch args → 在线 npm 安装（3M 自带 Node）→ 热加载。
 同步返回 accepted、mcp_id、status、message、error；不得含 catalog 字段。`,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args addArgs) (*mcp.CallToolResult, any, error) {
 		out := eng.AddManaged(ctx, engine.AddInput{

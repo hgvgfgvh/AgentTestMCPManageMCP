@@ -196,8 +196,8 @@ RefreshManagedMCPFrom3M()
 
 | 字段 | 说明 |
 |------|------|
-| `requirement` | **必需**。自然语言或结构化需求 |
-| `constraints` | 可选。网络、语言、版本、安装源白名单等 |
+| `requirement` | **必需**。自然语言：**同时写清要什么 MCP 能力 + 启动必备的基本配置**（如目录路径、`.db` 文件、默认仓库路径等）。示例：「sqlite MCP，数据库文件 `C:\data\app.db`」；「文件系统 MCP，允许 `C:\WorkSpace`」 |
+| `constraints` | 可选。补充配置或约束（如 token、只读、版本）；与 requirement 一并交给内部安装 Agent，写入 launch args / 后续 env（若支持） |
 | `correlation_id` | 可选 |
 
 **同步返回（JSON 字符串）** — **仅安装结果，不含地图（M4）**：

@@ -26,10 +26,10 @@ const addDecisionSystemPrompt = `你是 MCPManagerMCP（3M）内部的「安装�
 
 规则：
 1. 若需求与已有 managed 能力语义重叠，优先 reuse，不要重复安装。
-2. 不重叠时 install 必须给出真实 npm 包名（如 @modelcontextprotocol/server-filesystem、@mseep/git-mcp-server）。
-3. 统一在线 npm + 3M 自带 Node；不要要求 Host 传 JSON 或包名。
-4. 禁止用 echo 演示冒充 git/filesystem 等真实能力。
-5. 官方 Python 版 mcp-server-git 不可用；git 能力优先 @mseep/git-mcp-server。`
+2. 不重叠时 install 必须给出真实 npm 包名，并从 requirement/constraints 提取启动必备配置写入 args（如 filesystem 目录、sqlite 的 .db 路径）。
+3. 若 requirement 未提供该 MCP 类型必备的基本配置，输出 fail 并说明缺什么（不要装成 ready 但不可用）。
+4. 统一在线 npm + 3M 自带 Node；不要要求 Host 传 JSON 或包名。
+5. 禁止用 echo 演示冒充 git/filesystem/sqlite 等真实能力。`
 
 // DecideAdd 结合 Registry 与 LLM（可选）决策。
 func DecideAdd(ctx context.Context, agent *InstallAgent, reg *registry.Store, dataDir, requirement, constraints string) (AddDecision, error) {

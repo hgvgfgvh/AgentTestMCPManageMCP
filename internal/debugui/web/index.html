@@ -39,12 +39,12 @@
 
   <section id="sec-add">
     <h2>add_managed_mcp</h2>
-    <label>requirement（必需）</label>
-    <textarea id="add-req" placeholder="git管理能力&#10;或：需要读写 WorkSpace 目录的文件">git管理能力</textarea>
+    <label>requirement（必需：能力 + 基本配置）</label>
+    <textarea id="add-req" placeholder="sqlite MCP，数据库文件 C:\data\app.db&#10;或：文件系统 MCP，允许目录 C:\DATA\GODATA\AgentTest\WorkSpace">sqlite MCP，数据库文件 C:\data\app.db</textarea>
     <div class="row">
       <div>
-        <label>constraints（可选）</label>
-        <input id="add-con" type="text" />
+        <label>constraints（可选：补充配置，如 token、只读）</label>
+        <input id="add-con" type="text" placeholder="GITHUB_TOKEN=... 或 只读" />
       </div>
       <div>
         <label>correlation_id（可选）</label>
