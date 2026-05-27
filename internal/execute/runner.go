@@ -44,17 +44,20 @@ func (r *Runner) Run(ctx context.Context, mcpID, stepGoal, rawdata string) Outco
 	if !ok {
 		return Outcome{Error: "unknown_mcp_id", DurationMS: since(start)}
 	}
-	if rec.Status != "ready" {
+	switch rec.Status {
+	case "ready", "degraded":
+		// degraded：允许尝试重新拉起子进程（勿仅凭 Registry 快照拒调）
+	default:
 		return Outcome{Error: "mcp_not_ready:" + rec.Status, DurationMS: since(start)}
 	}
 
 	sess, err := r.Pool.EnsureRunning(ctx, rec)
 	if err != nil {
+		supervisor.MarkDegraded(r.Reg, mcpID, err)
 		return Outcome{Error: err.Error(), DurationMS: since(start)}
 	}
-	if err := supervisor.Ping(ctx, sess); err != nil {
-		supervisor.MarkDegraded(r.Reg, mcpID, err)
-		return Outcome{Error: "child_ping: " + err.Error(), DurationMS: since(start)}
+	if rec.Status == "degraded" {
+		_ = r.Reg.SetStatus(mcpID, "ready", "")
 	}
 
 	if r.StepAgent != nil {

@@ -28,17 +28,20 @@ func NewPool() *Pool {
 	}
 }
 
-// EnsureRunning 若未连接则按 LaunchSpec 启动子 MCP 并 Connect。
+// EnsureRunning 返回可用子 MCP 会话：复用前 Ping；失败则关掉旧连接并重新拉起。
 func (p *Pool) EnsureRunning(ctx context.Context, rec registry.Record) (*mcp.ClientSession, error) {
 	if rec.Launch.Command == "" {
 		return nil, fmt.Errorf("mcp %q: empty launch command", rec.MCPID)
 	}
 	p.mu.Lock()
-	if s, ok := p.sessions[rec.MCPID]; ok && s != nil {
-		p.mu.Unlock()
-		return s, nil
-	}
+	cached, ok := p.sessions[rec.MCPID]
 	p.mu.Unlock()
+	if ok && cached != nil {
+		if err := Ping(ctx, cached); err == nil {
+			return cached, nil
+		}
+		p.Stop(rec.MCPID)
+	}
 
 	cmd := exec.CommandContext(ctx, rec.Launch.Command, rec.Launch.Args...)
 	if rec.Launch.Dir != "" {
