@@ -191,8 +191,8 @@ requirement 应同时包含：
 		Description: `指定托管 MCP 完成单步动作：连接子 MCP →（内部 Agent 或规则）按工具列表选型 → 调用 → 原样返回 payload。
 
 mcp_id：托管 MCP 标识（由 list_managed_mcps 或 add_managed_mcp 得到）。
-step_goal：本步目标（自然语言）；内部 Agent 据此在子 MCP 工具列表中选工具。
-rawdata：仅供完成本步的参考数据（路径、业务参数、片段文本等），无固定格式，不必传 {"tool":...}；子工具名以 3M 拉取的列表为准，rawdata 中的 tool 字段会被忽略。`,
+step_goal：本步目标（自然语言）。
+rawdata：仅供完成本步的参考数据（路径、业务参数、片段文本等），无固定格式，这类代理调用的参数是给 LLM 做语义理解的，看到“自然语言描述”这类关键词，绝不再往里塞命令`,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args execArgs) (*mcp.CallToolResult, any, error) {
 		out := eng.ExecuteStep(ctx, engine.ExecuteInput{
 			MCPID: args.MCPID, StepGoal: args.StepGoal, Rawdata: args.Rawdata, CorrelationID: args.CorrelationID,
