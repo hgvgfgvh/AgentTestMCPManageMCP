@@ -10,24 +10,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// PickTool 有界选工具：rawdata JSON 指定 tool > 唯一工具 > 名称匹配 step_goal > 名为 echo > 第一个。
+// PickTool 有界选工具（无 LLM 或 StepAgent 兜底）：唯一工具 > 名称匹配 step_goal > 名为 echo > 第一个。
+// rawdata 仅作 arguments 素材，其中的 tool 字段不参与选型（与 StepAgent 提示一致）。
 func PickTool(tools []*mcp.Tool, stepGoal, rawdata string) (string, map[string]any, error) {
 	if len(tools) == 0 {
 		return "", nil, fmt.Errorf("child has no tools")
-	}
-	var hint struct {
-		Tool      string         `json:"tool"`
-		Arguments map[string]any `json:"arguments"`
-	}
-	if rawdata != "" {
-		_ = json.Unmarshal([]byte(rawdata), &hint)
-	}
-	if hint.Tool != "" {
-		args := hint.Arguments
-		if args == nil {
-			args = map[string]any{"input": rawdata}
-		}
-		return hint.Tool, args, nil
 	}
 	if len(tools) == 1 {
 		return tools[0].Name, defaultArgs(tools[0].Name, rawdata), nil

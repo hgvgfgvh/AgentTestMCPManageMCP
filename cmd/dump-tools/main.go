@@ -73,13 +73,13 @@ Host 刷新「托管能力」地图的唯一 3M 数据源；不含子工具 sche
 	type execArgs struct {
 		MCPID         string `json:"mcp_id" jsonschema:"required,托管 MCP 标识"`
 		StepGoal      string `json:"step_goal" jsonschema:"required,本步要完成的目标（自然语言）"`
-		Rawdata       string `json:"rawdata" jsonschema:"required,本步完整原始输入"`
+		Rawdata       string `json:"rawdata" jsonschema:"required,本步参考数据（自然语言或任意文本/JSON）；勿用于指定子 MCP 工具名"`
 		CorrelationID string `json:"correlation_id,omitempty"`
 	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "execute_step",
 		Description: `指定托管 MCP 完成单步动作。Phase-0 桩：不回问 Host；payload 为模拟子 MCP 原始 JSON 文本。
-入参须含 mcp_id、step_goal、rawdata（均 required）。`,
+入参须含 mcp_id、step_goal、rawdata（均 required）；rawdata 为参考数据，无固定格式。`,
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args execArgs) (*mcp.CallToolResult, any, error) {
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "{}"}}}, nil, nil
 	})

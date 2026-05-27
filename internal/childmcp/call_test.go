@@ -8,11 +8,19 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestPickTool_explicit(t *testing.T) {
+func TestPickTool_ignoresToolInRawdata(t *testing.T) {
 	tools := []*mcp.Tool{{Name: "echo"}, {Name: "other"}}
-	name, args, err := childmcp.PickTool(tools, "goal", `{"tool":"other","arguments":{"input":"x"}}`)
+	name, _, err := childmcp.PickTool(tools, "goal", `{"tool":"other","arguments":{"input":"x"}}`)
+	if err != nil || name != "echo" {
+		t.Fatalf("rawdata tool hint must be ignored: got %s err=%v", name, err)
+	}
+}
+
+func TestPickTool_goalNameMatch(t *testing.T) {
+	tools := []*mcp.Tool{{Name: "echo"}, {Name: "other"}}
+	name, _, err := childmcp.PickTool(tools, "call other on repo", `{"path":"/tmp"}`)
 	if err != nil || name != "other" {
-		t.Fatalf("got %s %v %v", name, args, err)
+		t.Fatalf("got %s err=%v", name, err)
 	}
 }
 
